@@ -63,8 +63,8 @@ def optimize_func(dsk, keys): # TODO: change function name
     return dsk
 
 
-def keep_algorithm(dsk, keys):
-    print("Inside the keep algorithm")
-    dask_graph = dsk.dicts
-    chunk_shape, dicts = get_used_proxies(dask_graph)
-    return dsk
+# def keep_algorithm(dsk, keys):
+#     print("Inside the keep algorithm")
+#     dask_graph = dsk.dicts
+#     chunk_shape, dicts = get_used_proxies(dask_graph)
+#     return dsk
