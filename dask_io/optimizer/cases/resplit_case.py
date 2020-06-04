@@ -149,20 +149,37 @@ def add_offsets(volumes_list, _3d_index, B):
         volume.add_offset(offset)
 
 
-def get_arrays_dict(buff_to_vols, buffers, outfiles_volumes):
+def get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes):
     """ IV - Assigner les volumes à tous les output files, en gardant référence du type de volume que c'est
     """
     array_dict = dict()
 
-    for buffer_index, buffer_volumes in buff_to_vols.items():
-        crossed_outfiles = get_crossed_outfiles(buffer_index, buffers, outfiles_volumes) # refine search
+    for buffer_index, volumes_in_buffer in buff_to_vols.items():
+        buffer_of_interest = buffers_volumes[buffer_index]
+        crossed_outfiles = get_crossed_outfiles(buffer_of_interest, outfiles_volumes) # refine search
 
-        for volume in buffer_volumes:
-            for outfile in crossed_outfiles:
-                if included_in(volume, outfile):
-                    add_to_array_dict(array_dict, outfile, volume)
+        for volume_in_buffer in volumes_in_buffer:
+            crossed=False
+            for outfile_volume in crossed_outfiles:
+                if included_in(volume_in_buffer, outfile_volume):
+                    add_to_array_dict(array_dict, outfile_volume, volume_in_buffer)
+                    crossed=True
                     break # a volume can belong to only one output file
+            if not crossed:
+                print(f'WARNING: a volume does not cross any outfile')
 
+    # below lies a sanity check
+    outfileskeys = list()
+    for k, v in outfiles_volumes.items():
+        outfileskeys.append(v.index)
+    arraysdictkeys = list(array_dict.keys())
+    if not len(array_dict.keys()) == len(outfileskeys):
+        print(f'len(array_dict.keys()): {len(arraysdictkeys)}')
+        print(f'len(outfileskeys): {len(outfileskeys)}\n')
+        print(f'arrays dict keys: {sorted(arraysdictkeys)}\n')
+        print(f'outfiles dict keys: {sorted(outfileskeys)}\n')
+        print(f'missing keys: {set(outfileskeys) - set(arraysdictkeys)}')
+        raise ValueError("Something is wrong, not all output files will be written")
     return array_dict
 
 

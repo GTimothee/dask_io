@@ -82,20 +82,17 @@ def get_blocks_shape(big_array, small_array):
     return tuple([int(b/s) for b, s in zip(big_array, small_array)])
 
 
-def get_crossed_outfiles(buffer_index, buffers, outfiles):
+def get_crossed_outfiles(buffer_of_interest, outfiles_volumes):
     """ Returns list of output files that are crossing buffer at buffer_index.
 
     Arguments: 
     ----------
-        buffer_index: Integer indexing the buffer of interest in storage order.
-        buffers: dict of volumes representing the buffers, indexed in storage order.
-        outfiles: dict of volumes representing the output files, indexed in storage order.
+        outfiles_volumes: dict of volumes representing the output files, indexed in storage order.
     """
     crossing = list()
-    buffer_of_interest = buffers[buffer_index]
-    for outfile in outfiles.values():
+    for outfile in outfiles_volumes.values():
         if hypercubes_overlap(buffer_of_interest, outfile):
-            crossing.append(outfile)
+            crossing.append(outfile)  # we add a Volume obj
     return crossing
 
 
@@ -132,6 +129,11 @@ def included_in(volume, outfile):
 
 def add_to_array_dict(array_dict, outfile, volume):
     """ Add volume information to dictionary associating output file index to 
+
+    Arguments:
+    ----------
+        outfile: outfile volume
+        volume: volume from buffer
     """
     if (not isinstance(outfile.index, int) 
         or not isinstance(volume, Volume) 
