@@ -54,7 +54,7 @@ class Volume:
         return True
 
     def print(self):
-        logger.debug("\tVolume name: %s, p1: %s, p2: %s", self.index, self.p1, self.p2)
+        print(f"Volume name: {self.index}, ({self.p1[0]}:{self.p2[0]},{self.p1[1]}:{self.p2[1]},{self.p1[2]}:{self.p2[2]})")
 
 
 def hypercubes_overlap(hypercube1, hypercube2):
@@ -68,10 +68,19 @@ def hypercubes_overlap(hypercube1, hypercube2):
     lowercorner2, uppercorner2 = hypercube2.get_corners()
     nb_dims = len(uppercorner1)
     
+    nb_matching_dims = 0
     for i in range(nb_dims):
-        if not uppercorner1[i] > lowercorner2[i] or \
-            not uppercorner2[i] > lowercorner1[i]:
+        # if not uppercorner1[i] > lowercorner2[i] or \
+        #     not uppercorner2[i] > lowercorner1[i]:
+        #     return False
+        if uppercorner1[i] <= lowercorner2[i] or \
+            uppercorner2[i] <= lowercorner1[i]:
             return False
+        elif uppercorner1[i] == uppercorner2[i] and lowercorner1[i] == lowercorner2[i]:
+            nb_matching_dims += 1 
+
+    if nb_matching_dims == nb_dims: # if corners are the same
+        return True
 
     return True
 
@@ -124,7 +133,25 @@ def included_in(volume, outfile):
         volume: Volume in buffer
         outfile: Volume representing an output file
     """
-    return hypercubes_overlap(volume, outfile)
+    if not isinstance(volume, Volume) or \
+        not isinstance(outfile, Volume):
+        raise TypeError()
+
+    volume_bl, volume_ur = volume.get_corners()  # ur=upper right, bl=bottom left
+    outfile_bl, outfile_ur = outfile.get_corners()
+
+    nb_dims = len(outfile_bl)
+    nb_matching_dims = 0
+    for dim in range(nb_dims):
+        out_min, out_max = outfile_bl[dim], outfile_ur[dim]
+        volume_min, volume_max = volume_bl[dim], volume_ur[dim]
+        if (volume_min >= out_min and volume_min <= out_max) and (volume_max >= out_min and volume_max <= out_max):
+            nb_matching_dims += 1
+
+    if nb_matching_dims == nb_dims:
+        return True
+
+    return False
 
 
 def add_to_array_dict(array_dict, outfile, volume):

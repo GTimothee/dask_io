@@ -102,26 +102,26 @@ def test_get_named_volumes():
         assert expected[k].equals(buffers[k])
 
 
-def test_get_crossed_outfiles():
-    R = (120, 120, 1)
-    B = (60, 60, 1)
-    O = (40, 40, 1)
-    buffers_shape = get_blocks_shape(R, B)
-    outfiles_shape = get_blocks_shape(R, O)
-    buffers = get_named_volumes(buffers_shape, B)
-    outfiles = get_named_volumes(outfiles_shape, O)
+# def test_get_crossed_outfiles():
+#     R = (120, 120, 1)
+#     B = (60, 60, 1)
+#     O = (40, 40, 1)
+#     buffers_shape = get_blocks_shape(R, B)
+#     outfiles_shape = get_blocks_shape(R, O)
+#     buffers = get_named_volumes(buffers_shape, B)
+#     outfiles = get_named_volumes(outfiles_shape, O)
 
-    expected = {
-        0: [0, 1, 3, 4],
-        1: [1, 2, 4, 5],
-        2: [3, 4, 6, 7],
-        3: [4, 5, 7, 8]
-    }
+#     expected = {
+#         0: [0, 1, 3, 4],
+#         1: [1, 2, 4, 5],
+#         2: [3, 4, 6, 7],
+#         3: [4, 5, 7, 8]
+#     }
 
-    for buffer_index in range(4):
-        crossed = get_crossed_outfiles(buffer_index, buffers, outfiles)
-        indices = [v.index for v in crossed]
-        assert set(expected[buffer_index]) == set(indices)
+#     for buffer_index in range(4):
+#         crossed = get_crossed_outfiles(buffer_index, buffers, outfiles)
+#         indices = [v.index for v in crossed]
+#         assert set(expected[buffer_index]) == set(indices)
 
 
 def test_merge_volumes():

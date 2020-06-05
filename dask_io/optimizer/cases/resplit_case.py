@@ -1,6 +1,6 @@
 import math, copy
 
-from dask_io.optimizer.utils.utils import numeric_to_3d_pos, _3d_to_numeric_pos
+from dask_io.optimizer.utils.utils import numeric_to_3d_pos, _3d_to_numeric_pos, create_csv_file
 from dask_io.optimizer.cases.resplit_utils import *
 
 import logging 
@@ -149,36 +149,38 @@ def add_offsets(volumes_list, _3d_index, B):
         volume.add_offset(offset)
 
 
-def get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes):
+def get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes, outfiles_partititon):
     """ IV - Assigner les volumes à tous les output files, en gardant référence du type de volume que c'est
     """
     array_dict = dict()
 
+    miss = False
     for buffer_index, volumes_in_buffer in buff_to_vols.items():
         buffer_of_interest = buffers_volumes[buffer_index]
-        crossed_outfiles = get_crossed_outfiles(buffer_of_interest, outfiles_volumes) # refine search
+        # crossed_outfiles = get_crossed_outfiles(buffer_of_interest, outfiles_volumes) # refine search
 
         for volume_in_buffer in volumes_in_buffer:
             crossed=False
-            for outfile_volume in crossed_outfiles:
+            for outfile_volume in outfiles_volumes.values(): # crossed_outfiles:
                 if included_in(volume_in_buffer, outfile_volume):
                     add_to_array_dict(array_dict, outfile_volume, volume_in_buffer)
                     crossed=True
                     break # a volume can belong to only one output file
-            if not crossed:
-                print(f'WARNING: a volume does not cross any outfile')
-
+            if not crossed and not miss:
+                miss = True
+    if miss:
+        print(f'WARNING: a volume has not been attributed to any outfile')
+                
     # below lies a sanity check
     outfileskeys = list()
     for k, v in outfiles_volumes.items():
         outfileskeys.append(v.index)
     arraysdictkeys = list(array_dict.keys())
+    missing_keys = set(outfileskeys) - set(arraysdictkeys)
     if not len(array_dict.keys()) == len(outfileskeys):
         print(f'len(array_dict.keys()): {len(arraysdictkeys)}')
-        print(f'len(outfileskeys): {len(outfileskeys)}\n')
-        print(f'arrays dict keys: {sorted(arraysdictkeys)}\n')
-        print(f'outfiles dict keys: {sorted(outfileskeys)}\n')
-        print(f'missing keys: {set(outfileskeys) - set(arraysdictkeys)}')
+        print(f'len(outfileskeys): {len(outfileskeys)}')
+        print(f'nb missing keys: {len(missing_keys)}')
         raise ValueError("Something is wrong, not all output files will be written")
     return array_dict
 
@@ -274,22 +276,90 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
     logger.debug("== Function == get_buff_to_vols")
     buff_to_vols = dict()
     
+    rows = list()
     for buffer_index in buffers_volumes.keys():
+        print(f'\nProcessing buffer {buffer_index}')
+        buffers_volumes[buffer_index].print()
         _3d_index = numeric_to_3d_pos(buffer_index, buffers_partition, order='F')
         
         T = list()
+        Cs = list()
         for dim in range(len(buffers_volumes[buffer_index].p1)):
-            C = ((_3d_index[dim]+1) * B[dim]) % O[dim]
-            if C == 0 and B[dim] != O[dim]:  # particular case
-                C = O[dim]
+            if B[dim] < O[dim]:
+                C = 0 
+            else:            
+                C = ((_3d_index[dim]+1) * B[dim]) % O[dim]
+                print(f'{((_3d_index[dim]+1) * B[dim])}mod{O[dim]} = {C}')
+                if C == 0 and B[dim] != O[dim]:  # particular case 
+                    C = O[dim]
+
+            if C < 0:
+                raise ValueError("modulo should not return negative value")
+
+            Cs.append(C)
             T.append(B[dim] - C)
+            
+        print(f'C: {Cs}')
+        print(f'theta: {T}')
         volumes_list = get_main_volumes(B, T)  # get coords in basis of buffer
         volumes_list = volumes_list + compute_hidden_volumes(T, O)  # still in basis of buffer
         add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R
+
+        # sanity check
+        xs, ys, zs = list(), list(), list()
+        for volume in volumes_list:
+            x1, y1, z1 = volume.p1
+            x2, y2, z2 = volume.p2 
+            xs.append(x1)
+            xs.append(x2)
+            ys.append(y1)
+            ys.append(y2)
+            zs.append(z1)
+            zs.append(z2)
+        err = -1
+        if not min(xs) == buffers_volumes[buffer_index].p1[0]:
+            err = 0
+        if not min(ys) == buffers_volumes[buffer_index].p1[1]:
+            err = 1
+        if not min(zs) == buffers_volumes[buffer_index].p1[2]:
+            err = 2
+        if not max(xs) == buffers_volumes[buffer_index].p2[0]:
+            err = 3
+        if not max(ys) == buffers_volumes[buffer_index].p2[1]:
+            err = 4
+        if not max(zs) == buffers_volumes[buffer_index].p2[2]:
+            err = 5
+        if err > -1:
+            print(f'buffer lower corner: {buffers_volumes[buffer_index].p1}')
+            print(f'volumes lower corner: {(min(xs), min(ys), min(zs))}')
+            print(f'buffer upper corner: {buffers_volumes[buffer_index].p2}')
+            print(f'volumes upper corner: {(max(xs), max(ys), max(zs))}')
+            raise ValueError()
+        # end of sanity check
+
         buff_to_vols[buffer_index] = volumes_list
-        logger.debug("Associated buffer n°%s to volumes:", buffer_index)
+        # logger.debug("Associated buffer n°%s to volumes:", buffer_index)
+        # print(f'Volumes found for buffer {buffer_index}:')
         for v in volumes_list:
-            v.print()
+            # v.print()
+            rows.append((
+                (v.p1[1], v.p1[2]),
+                v.p2[1] - v.p1[1],
+                v.p2[2] - v.p1[2],
+            ))
+            
+    # debug only
+    columns = [
+        'bl_corner',
+        'width',
+        'height'
+    ]
+    csv_path = '/tmp/compute_zones_buffervolumes.csv'
+    csv_out, writer = create_csv_file(csv_path, columns, delimiter=',', mode='w+')
+    for row in set(rows): 
+        writer.writerow(row)
+    csv_out.close()
+
     logger.debug("End\n")
     return buff_to_vols
 
@@ -308,16 +378,22 @@ def compute_zones(B, O, R, volumestokeep):
     logger.debug("Getting buffer partitions and buffer volumes")
     buffers_partition = get_blocks_shape(R, B)
     buffers_volumes = get_named_volumes(buffers_partition, B)
+    print(f'Buffers found:')
+    for i, buff in buffers_volumes.items():
+        buff.print()
     logger.debug("Getting output files partitions and buffer volumes")
     outfiles_partititon = get_blocks_shape(R, O)
     outfiles_volumes = get_named_volumes(outfiles_partititon, O)
+
+    print(f'buffers partition: {buffers_partition}')
+    print(f'outfiles partition: {outfiles_partititon}')
 
     # A/ associate each buffer to volumes contained in it
     buff_to_vols = get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition)
 
     # B/ Create arrays dict from buff_to_vols
     # arrays_dict associate each output file to parts of it to be stored at a time
-    arrays_dict = get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes) 
+    arrays_dict = get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes, outfiles_partititon) 
     merge_cached_volumes(arrays_dict, volumestokeep)
 
     logger.debug("Arrays dict before clean:")
