@@ -305,6 +305,10 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
         volumes_list = volumes_list + compute_hidden_volumes(T, O)  # still in basis of buffer
         add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R
 
+        # debug 
+        for v in volumes_list:
+            v.print()
+
         # sanity check
         xs, ys, zs = list(), list(), list()
         for volume in volumes_list:
@@ -334,8 +338,23 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
             print(f'volumes lower corner: {(min(xs), min(ys), min(zs))}')
             print(f'buffer upper corner: {buffers_volumes[buffer_index].p2}')
             print(f'volumes upper corner: {(max(xs), max(ys), max(zs))}')
-            raise ValueError()
+            raise ValueError("Error ", err)
         # end of sanity check
+
+        # sanity check 2
+        volumes_volume = 0
+        buffer_volume = B[0]*B[1]*B[2]
+        for volume in volumes_list:
+            x1, y1, z1 = volume.p1
+            x2, y2, z2 = volume.p2 
+            vol = (x2-x1)*(y2-y1)*(z2-z1)
+            volumes_volume += vol
+
+        if buffer_volume != volumes_volume:
+            print(f'Buffer volume: {buffer_volume}')
+            print(f'Sum of volumes: {volumes_volume}')
+            raise ValueError("sum of volumes should be equal to buffer volume")
+        # end of sanity check 2
 
         buff_to_vols[buffer_index] = volumes_list
         # logger.debug("Associated buffer n°%s to volumes:", buffer_index)

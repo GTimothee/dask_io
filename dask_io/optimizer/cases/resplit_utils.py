@@ -54,7 +54,7 @@ class Volume:
         return True
 
     def print(self):
-        print(f"Volume name: {self.index}, ({self.p1[0]}:{self.p2[0]},{self.p1[1]}:{self.p2[1]},{self.p1[2]}:{self.p2[2]})")
+        print(f"Volume name: {self.index}, ({self.p1[0]}:{self.p2[0]},{self.p1[1]}:{self.p2[1]},{self.p1[2]}:{self.p2[2]}), shape:({self.p2[0]-self.p1[0]},{self.p2[1]-self.p1[1]},{self.p2[2]-self.p1[2]})")
 
 
 def hypercubes_overlap(hypercube1, hypercube2):
