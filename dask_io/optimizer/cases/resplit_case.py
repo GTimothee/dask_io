@@ -118,7 +118,7 @@ def compute_hidden_volumes(T, O):
 
 
     hidden_volumes = list()
-    index = 7 # key of the volume in the dictionary of volumes, [1 -> 7 included] already taken
+    index = 7 # key of the volume in the dictionary of volumes (1 -> 7 included are already taken so keys begin at 8 and more)
     for i in range(len(points[0])-1):
         for j in range(len(points[1])-1):
             for k in range(len(points[2])-1):
@@ -140,6 +140,7 @@ def compute_hidden_volumes(T, O):
         blc_index[Axes.k.value] = 0
         trc_index[Axes.k.value] = 1
     return hidden_volumes
+
 
 def add_offsets(volumes_list, _3d_index, B):
     """ III - Add offset to volumes positions to get positions in the reconstructed image.
@@ -273,15 +274,8 @@ def get_regions_dict(array_dict, outfiles_volumes):
 def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
     """ Outputs a dictionary associating buffer_index to list of Volumes indexed as in paper.
     """
-    logger.debug("== Function == get_buff_to_vols")
-    buff_to_vols = dict()
-    
-    rows = list()
-    for buffer_index in buffers_volumes.keys():
-        print(f'\nProcessing buffer {buffer_index}')
-        buffers_volumes[buffer_index].print()
-        _3d_index = numeric_to_3d_pos(buffer_index, buffers_partition, order='F')
-        
+
+    def get_theta(buffers_volumes, buffer_index, _3d_index, O, B):
         T = list()
         Cs = list()
         for dim in range(len(buffers_volumes[buffer_index].p1)):
@@ -297,19 +291,14 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
                 raise ValueError("modulo should not return negative value")
 
             Cs.append(C)
-            T.append(B[dim] - C)
-            
+            T.append(B[dim] - C)   
         print(f'C: {Cs}')
         print(f'theta: {T}')
-        volumes_list = get_main_volumes(B, T)  # get coords in basis of buffer
-        volumes_list = volumes_list + compute_hidden_volumes(T, O)  # still in basis of buffer
-        add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R
+        return T
 
-        # debug 
-        for v in volumes_list:
-            v.print()
-
-        # sanity check
+    def first_sanity_check(buffers_volumes, buffer_index, volumes_list):
+        """ see if volumes coordinates found are inside buffer
+        """
         xs, ys, zs = list(), list(), list()
         for volume in volumes_list:
             x1, y1, z1 = volume.p1
@@ -339,35 +328,63 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
             print(f'buffer upper corner: {buffers_volumes[buffer_index].p2}')
             print(f'volumes upper corner: {(max(xs), max(ys), max(zs))}')
             raise ValueError("Error ", err)
-        # end of sanity check
 
-        # sanity check 2
+    def second_sanity_check(B, O, volumes_list):
+        """ see if sum of all volumes equals the volume of the buffer 
+        + see if each volume is <= volume of an output file as a volume cannot be bigger than an output file
+        """
         volumes_volume = 0
         buffer_volume = B[0]*B[1]*B[2]
+        outfile_volume = O[0]*O[1]*O[2]
         for volume in volumes_list:
             x1, y1, z1 = volume.p1
             x2, y2, z2 = volume.p2 
             vol = (x2-x1)*(y2-y1)*(z2-z1)
+
+            if vol > outfile_volume:
+                print(f'Outfile volume: {outfile_volume}')
+                print(f'Volume considered: {vol}')
+                raise ValueError("A volume should not be bigger than outfile")
+
             volumes_volume += vol
 
         if buffer_volume != volumes_volume:
             print(f'Buffer volume: {buffer_volume}')
             print(f'Sum of volumes: {volumes_volume}')
             raise ValueError("sum of volumes should be equal to buffer volume")
-        # end of sanity check 2
+
+    logger.debug("== Function == get_buff_to_vols")
+    buff_to_vols = dict()
+    
+    rows = list()
+    for buffer_index in buffers_volumes.keys():
+        print(f'\nProcessing buffer {buffer_index}')
+        buffers_volumes[buffer_index].print()
+        _3d_index = numeric_to_3d_pos(buffer_index, buffers_partition, order='F')
+
+        T = get_theta(buffers_volumes, buffer_index, _3d_index, O, B)
+        volumes_list = get_main_volumes(B, T)  # get coords in basis of buffer
+        volumes_list = volumes_list + compute_hidden_volumes(T, O)  # still in basis of buffer
+        add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R
+
+        # debug 
+        for v in volumes_list:
+            v.print()
+
+        first_sanity_check(buffers_volumes, buffer_index, volumes_list)
+        second_sanity_check(B, O, volumes_list)
 
         buff_to_vols[buffer_index] = volumes_list
-        # logger.debug("Associated buffer n°%s to volumes:", buffer_index)
-        # print(f'Volumes found for buffer {buffer_index}:')
+        
+        # debug csv file
         for v in volumes_list:
-            # v.print()
             rows.append((
                 (v.p1[1], v.p1[2]),
                 v.p2[1] - v.p1[1],
                 v.p2[2] - v.p1[2],
             ))
             
-    # debug only
+    # debug csv file
     columns = [
         'bl_corner',
         'width',
