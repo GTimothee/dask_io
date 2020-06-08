@@ -271,6 +271,42 @@ def get_regions_dict(array_dict, outfiles_volumes):
     return regions_dict
 
 
+def split_main_volumes(volumes_list, O):
+    """ Split the remainder volumes into volumes by the boundaries of the output files.
+    """
+    
+    def get_dim_pts(bound, it, step, pts_list):
+        bound = k_min
+        it = k_max
+        step = Ok
+        pts_list = pts_k
+        while it > bound:
+            it -= step
+            if it > bound:
+                pts_list.append(it)
+    
+    def get_points(O):
+        upright_corner = volume.p2
+        botleft_corner = volume.p1
+
+        Oi, Oj, Ok = O
+        i_max, j_max, k_max = upright_corner
+        i_min, j_min, k_min = botleft_corner
+        pts_i, pts_j, pts_k = [i_max, i_min], [j_max, j_min], [k_max, k_min]
+        
+        pts_i = get_dim_pts(i_min, i_max, Oi, pts_i)
+        pts_j = get_dim_pts(j_min, j_max, Oj, pts_j)
+        pts_k = get_dim_pts(k_min, k_max, Ok, pts_k)
+        return pts_i, pts_j, pts_k
+
+    split_volumes = list()
+    for volume in volumes_list:
+        points = get_points(O)
+        hid_vols = get_volumes_from_points(points)
+        split_volumes.extend(hid_vols)
+
+    return split_volumes
+
 def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
     """ Outputs a dictionary associating buffer_index to list of Volumes indexed as in paper.
     """
@@ -364,7 +400,8 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
 
         T = get_theta(buffers_volumes, buffer_index, _3d_index, O, B)
         volumes_list = get_main_volumes(B, T)  # get coords in basis of buffer
-        volumes_list = volumes_list + compute_hidden_volumes(T, O)  # still in basis of buffer
+        volumes_list = split_main_volumes(volumes_list, O) # seek for hidden volumes in main volumes
+        volumes_list = volumes_list + compute_hidden_volumes(T, O)  # still in basis of buffer TODO: change naming -> add 0 as prefix
         add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R
 
         # debug 
