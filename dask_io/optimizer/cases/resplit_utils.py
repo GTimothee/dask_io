@@ -120,7 +120,7 @@ def merge_volumes(volume1, volume2):
     uppercorner = (max(uppercorner1[0], uppercorner2[0]), 
                    max(uppercorner1[1], uppercorner2[1]),
                    max(uppercorner1[2], uppercorner2[2]))
-    return Volume(None, lowercorner, uppercorner)
+    return Volume('0_merged', lowercorner, uppercorner)
 
 
 def included_in(volume, outfile):

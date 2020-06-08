@@ -118,14 +118,15 @@ def compute_hidden_volumes(T, O):
 
 
     hidden_volumes = list()
-    index = 7 # key of the volume in the dictionary of volumes (1 -> 7 included are already taken so keys begin at 8 and more)
+    index = 0 # key of the volume in the dictionary of volumes (1 -> 7 included are already taken so keys begin at 8 and more)
     for i in range(len(points[0])-1):
         for j in range(len(points[1])-1):
             for k in range(len(points[2])-1):
                 corners = [(points[0][blc_index[0]], points[1][blc_index[1]], points[2][blc_index[2]]),
                            (points[0][trc_index[0]], points[1][trc_index[1]], points[2][trc_index[2]])]
+                name = '0_' + str(index)
+                hidden_volumes.append(Volume(name, corners[0], corners[1]))
                 index += 1
-                hidden_volumes.append(Volume(index, corners[0], corners[1]))
 
                 blc_index[Axes.k.value] += 1
                 trc_index[Axes.k.value] += 1
@@ -196,18 +197,16 @@ def merge_cached_volumes(arrays_dict, volumestokeep):
         logger.debug("Treating outfile n°%s", outfileindex)
         volumes = arrays_dict[outfileindex]
         
-        for voltomerge_index in merge_rules.keys():
+        for remainder_index in merge_rules.keys():
             for i in range(len(volumes)):
-                if volumes[i].index == voltomerge_index:
-                    # logger.debug("nb volumes for outfile %s: %s", outfileindex, len(volumes))
-                    # logger.debug("merging volume %s", voltomerge_index)
+                volumes[i].print()
+                name = volumes[i].index
+                index = int(name.split('_')[0])
+                if index == remainder_index:
                     volumetomerge = volumes.pop(i)
-                    # logger.debug("POP nb volumes for outfile %s: %s", outfileindex, len(volumes))
-                    merge_directions = merge_rules[volumetomerge.index]
-                    new_volume = apply_merge(volumetomerge, volumes, merge_directions)
-                    # logger.debug("BEFORE ADD NEW nb volumes for outfile %s: %s", outfileindex, len(volumes))
+                    merge_directions = merge_rules[index]
+                    new_volume = apply_merge(volumetomerge, volumes, merge_directions)  # also pops the volumes that are merged with
                     volumes.append(new_volume)
-                    # logger.debug("AFTER ADD NEW nb volumes for outfile %s: %s", outfileindex, len(volumes))
                     break
 
         arrays_dict[outfileindex] = volumes
@@ -276,10 +275,6 @@ def split_main_volumes(volumes_list, O):
     """
     
     def get_dim_pts(bound, it, step, pts_list):
-        bound = k_min
-        it = k_max
-        step = Ok
-        pts_list = pts_k
         while it > bound:
             it -= step
             if it > bound:
@@ -294,15 +289,16 @@ def split_main_volumes(volumes_list, O):
         i_min, j_min, k_min = botleft_corner
         pts_i, pts_j, pts_k = [i_max, i_min], [j_max, j_min], [k_max, k_min]
         
-        pts_i = get_dim_pts(i_min, i_max, Oi, pts_i)
-        pts_j = get_dim_pts(j_min, j_max, Oj, pts_j)
-        pts_k = get_dim_pts(k_min, k_max, Ok, pts_k)
-        return (pts_i, pts_j, pts_k)
+        get_dim_pts(i_min, i_max, Oi, pts_i)
+        get_dim_pts(j_min, j_max, Oj, pts_j)
+        get_dim_pts(k_min, k_max, Ok, pts_k)
+        return (sorted(pts_i), sorted(pts_j), sorted(pts_k))
 
     def get_volumes_from_points(volume, points):
         i, j, k = volume.p1
         pts_i, pts_j, pts_k = points
         
+        index = 0
         remainder_hid_vols = list()
         for i in range(len(pts_i)-1):
             for j in range(len(pts_j)-1):
@@ -310,8 +306,9 @@ def split_main_volumes(volumes_list, O):
                     name = str(volume.index) + '_' + str(index)
                     botleft_corner = (pts_i[i], pts_j[j], pts_k[k])
                     upright_corner = (pts_i[i+1], pts_j[j+1], pts_k[k+1])
-                    new_vol = Volume(name, p1, p2)
+                    new_vol = Volume(name, botleft_corner, upright_corner)
                     remainder_hid_vols.append(new_vol)
+                    index += 1
         
         return remainder_hid_vols
 
@@ -321,6 +318,7 @@ def split_main_volumes(volumes_list, O):
         hid_vols = get_volumes_from_points(volume, points)
         split_volumes.extend(hid_vols)
     return split_volumes
+
 
 def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
     """ Outputs a dictionary associating buffer_index to list of Volumes indexed as in paper.
@@ -416,7 +414,7 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
         T = get_theta(buffers_volumes, buffer_index, _3d_index, O, B)
         volumes_list = get_main_volumes(B, T)  # get coords in basis of buffer
         volumes_list = split_main_volumes(volumes_list, O) # seek for hidden volumes in main volumes
-        volumes_list = volumes_list + compute_hidden_volumes(T, O)  # still in basis of buffer TODO: change naming -> add 0 as prefix
+        volumes_list = volumes_list + compute_hidden_volumes(T, O)  # still in basis of buffer 
         add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R
 
         # debug 

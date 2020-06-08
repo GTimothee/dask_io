@@ -150,7 +150,7 @@ def test_get_dirty_arrays_dict():
     outfiles_volumes = get_named_volumes(outfiles_partititon, O)
     buff_to_vols = get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition)
     
-    test_arrays = get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes) 
+    test_arrays = get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes, outfiles_partititon) 
     test_arrays_lengths = { k: len(v) for (k, v) in test_arrays.items()}
     expected = {
         0: 1,
@@ -181,7 +181,7 @@ def test_merge_cached_volumes():
     outfiles_partititon = get_blocks_shape(R, O)
     outfiles_volumes = get_named_volumes(outfiles_partititon, O)
     buff_to_vols = get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition)
-    test_arrays = get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes) 
+    test_arrays = get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes, outfiles_partititon) 
 
     # do the merge
     merge_cached_volumes(test_arrays, volumes_to_keep_test)
@@ -215,7 +215,7 @@ def test_clean_arrays_dict():
     outfiles_partititon = get_blocks_shape(R, O)
     outfiles_volumes = get_named_volumes(outfiles_partititon, O)
     buff_to_vols = get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition)
-    test_arrays = get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes) 
+    test_arrays = get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes, outfiles_partititon) 
     merge_cached_volumes(test_arrays, volumes_to_keep_test)
 
     # do the clean
