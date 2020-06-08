@@ -285,7 +285,7 @@ def split_main_volumes(volumes_list, O):
             if it > bound:
                 pts_list.append(it)
     
-    def get_points(O):
+    def get_points(volume, O):
         upright_corner = volume.p2
         botleft_corner = volume.p1
 
@@ -297,14 +297,29 @@ def split_main_volumes(volumes_list, O):
         pts_i = get_dim_pts(i_min, i_max, Oi, pts_i)
         pts_j = get_dim_pts(j_min, j_max, Oj, pts_j)
         pts_k = get_dim_pts(k_min, k_max, Ok, pts_k)
-        return pts_i, pts_j, pts_k
+        return (pts_i, pts_j, pts_k)
+
+    def get_volumes_from_points(volume, points):
+        i, j, k = volume.p1
+        pts_i, pts_j, pts_k = points
+        
+        remainder_hid_vols = list()
+        for i in range(len(pts_i)-1):
+            for j in range(len(pts_j)-1):
+                for k in range(len(pts_k)-1):
+                    name = str(volume.index) + '_' + str(index)
+                    botleft_corner = (pts_i[i], pts_j[j], pts_k[k])
+                    upright_corner = (pts_i[i+1], pts_j[j+1], pts_k[k+1])
+                    new_vol = Volume(name, p1, p2)
+                    remainder_hid_vols.append(new_vol)
+        
+        return remainder_hid_vols
 
     split_volumes = list()
     for volume in volumes_list:
-        points = get_points(O)
-        hid_vols = get_volumes_from_points(points)
+        points = get_points(volume, O)
+        hid_vols = get_volumes_from_points(volume, points)
         split_volumes.extend(hid_vols)
-
     return split_volumes
 
 def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
