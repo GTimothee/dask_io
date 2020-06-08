@@ -122,7 +122,7 @@ def split_hdf5_multiple(arr, out_dirpath, nb_blocks, file_list):
     return da.store(arr_list, datasets, compute=False)
 
 
-def merge_hdf5_multiple(input_dirpath, out_filepath, out_file, dataset_key, store):
+def merge_hdf5_multiple(input_dirpath, out_filepath, out_file, dataset_key, store, rechunk_input):
     """ Merge separated hdf5 files into one hdf5 output file.
     
     Arguments: 
@@ -153,6 +153,8 @@ def merge_hdf5_multiple(input_dirpath, out_filepath, out_file, dataset_key, stor
         arr = get_dask_array_from_hdf5(infilepath, 
                                        dataset_key, 
                                        logic_cs="dataset_shape")
+        if rechunk_input != None and isinstance(rechunk_input, tuple):
+            arr = arr.rechunk(rechunk_input)
         data[pos] = arr
     os.chdir(workdir)
 

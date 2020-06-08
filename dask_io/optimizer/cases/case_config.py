@@ -24,7 +24,7 @@ class Merge():
         self.case = None
 
 
-    def merge_hdf5_multiple(self, input_dirpath, data_key='/data', store=True):
+    def merge_hdf5_multiple(self, input_dirpath, data_key='/data', store=True, rechunk_input=None):
         """ Merge hdf5 files into one output hdf5 file.
 
         Each input file should:
@@ -45,7 +45,8 @@ class Merge():
                 'input_dirpath': input_dirpath,
                 'data_key': data_key,
                 'out_file': None,
-                'store': store
+                'store': store,
+                'rechunk_input': rechunk_input
             }
         }
 
@@ -62,7 +63,8 @@ class Merge():
                                        self.out_filepath,
                                        case['params']['out_file'],
                                        case['params']['data_key'],
-                                       case['params']['store'])
+                                       case['params']['store'],
+                                       case["params"]["rechunk_input"])
 
     def clean(self):
         name = self.case['name']
