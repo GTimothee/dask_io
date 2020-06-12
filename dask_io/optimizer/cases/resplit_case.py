@@ -20,6 +20,9 @@ def get_main_volumes(B, T):
     logger.debug("\t[Arg] T: %s", T)
 
     main_volumes = [
+        Volume(0,
+               (0,0,0),
+               (T[Axes.i.value], T[Axes.j.value], T[Axes.k.value])),
         Volume(1,
                (0,0,T[Axes.k.value]),
                (T[Axes.i.value], T[Axes.j.value], B[Axes.k.value]))]
@@ -156,7 +159,6 @@ def get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes, outfiles_pa
     """
     array_dict = dict()
 
-    miss = False
     for buffer_index, volumes_in_buffer in buff_to_vols.items():
         buffer_of_interest = buffers_volumes[buffer_index]
         # crossed_outfiles = get_crossed_outfiles(buffer_of_interest, outfiles_volumes) # refine search
@@ -168,10 +170,9 @@ def get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes, outfiles_pa
                     add_to_array_dict(array_dict, outfile_volume, volume_in_buffer)
                     crossed=True
                     break # a volume can belong to only one output file
-            if not crossed and not miss:
-                miss = True
-    if miss:
-        print(f'WARNING: a volume has not been attributed to any outfile')
+            if not crossed:
+                print("volume miss:")
+                volume_in_buffer.print()
                 
     # below lies a sanity check
     outfileskeys = list()
@@ -287,9 +288,18 @@ def split_main_volumes(volumes_list, O):
         Oi, Oj, Ok = O
         i_max, j_max, k_max = upright_corner
         i_min, j_min, k_min = botleft_corner
-        pts_i, pts_j, pts_k = [i_max, i_min], [j_max, j_min], [k_max, k_min]
+        pts_i, pts_j, pts_k = [i_max, i_min], [j_max, j_min], [k_max, k_min] # add borders of volume to points
         
-        get_dim_pts(i_min, i_max, Oi, pts_i)
+        first_outfile_borders = (i_max - (i_max % Oi), j_max - (j_max % Oj), k_max - (k_max % Ok)) # compute first outfile borders
+        i_max, j_max, k_max = first_outfile_borders
+        if not i_max in pts_i: # if first outfile borders != max then add it to points too
+            pts_i.append(i_max)
+        if not j_max in pts_j:
+            pts_j.append(j_max)
+        if not k_max in pts_k:
+            pts_k.append(k_max)
+
+        get_dim_pts(i_min, i_max, Oi, pts_i) # from max, compute the other outfiles borders and add it to points
         get_dim_pts(j_min, j_max, Oj, pts_j)
         get_dim_pts(k_min, k_max, Ok, pts_k)
         return (sorted(pts_i), sorted(pts_j), sorted(pts_k))
@@ -376,7 +386,7 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
             print(f'volumes lower corner: {(min(xs), min(ys), min(zs))}')
             print(f'buffer upper corner: {buffers_volumes[buffer_index].p2}')
             print(f'volumes upper corner: {(max(xs), max(ys), max(zs))}')
-            raise ValueError("Error ", err)
+            raise ValueError("[get_buff_to_vols] Error " + str(err))
 
     def second_sanity_check(B, O, volumes_list):
         """ see if sum of all volumes equals the volume of the buffer 
@@ -413,13 +423,30 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
 
         T = get_theta(buffers_volumes, buffer_index, _3d_index, O, B)
         volumes_list = get_main_volumes(B, T)  # get coords in basis of buffer
-        volumes_list = split_main_volumes(volumes_list, O) # seek for hidden volumes in main volumes
-        volumes_list = volumes_list + compute_hidden_volumes(T, O)  # still in basis of buffer 
-        add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R
-
-        # debug 
+        print('Main volumes found:')
         for v in volumes_list:
             v.print()
+
+        add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R - WARNING: important to be in this order, we need basis R for split_main_volumes
+        volumes_list = split_main_volumes(volumes_list, O) # seek for hidden volumes in main volumes
+        print('Split volumes found:')
+        for v in volumes_list:
+            v.print()
+
+        # hidd_vols = compute_hidden_volumes(T, O)
+        # add_offsets(hidd_vols, _3d_index, B)
+        # print('Hidden volumes found:')
+        # for v in hidd_vols:
+        #     v.print()
+
+        # volumes_list = volumes_list + hidd_vols  # still in basis of buffer 
+        
+
+        # debug 
+        print('\nVolumes found:')
+        for v in volumes_list:
+            v.print()
+        print('\n')
 
         first_sanity_check(buffers_volumes, buffer_index, volumes_list)
         second_sanity_check(B, O, volumes_list)
@@ -470,6 +497,10 @@ def compute_zones(B, O, R, volumestokeep):
     logger.debug("Getting output files partitions and buffer volumes")
     outfiles_partititon = get_blocks_shape(R, O)
     outfiles_volumes = get_named_volumes(outfiles_partititon, O)
+
+    print('Outfile volumes:')
+    for k, outfiles_volume in outfiles_volumes.items():
+        outfiles_volume.print()
 
     print(f'buffers partition: {buffers_partition}')
     print(f'outfiles partition: {outfiles_partititon}')
