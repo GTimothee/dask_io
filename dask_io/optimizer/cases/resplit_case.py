@@ -291,13 +291,19 @@ def split_main_volumes(volumes_list, O):
         pts_i, pts_j, pts_k = [i_max, i_min], [j_max, j_min], [k_max, k_min] # add borders of volume to points
         
         first_outfile_borders = (i_max - (i_max % Oi), j_max - (j_max % Oj), k_max - (k_max % Ok)) # compute first outfile borders
-        i_max, j_max, k_max = first_outfile_borders
-        if not i_max in pts_i: # if first outfile borders != max then add it to points too
-            pts_i.append(i_max)
-        if not j_max in pts_j:
-            pts_j.append(j_max)
-        if not k_max in pts_k:
-            pts_k.append(k_max)
+        fi, fj, fk = first_outfile_borders
+        if fi > i_min:
+            i_max = fi
+            if not i_max in pts_i: # if first outfile borders != max then add it to points too
+                pts_i.append(i_max)
+        if fj > j_min:
+            j_max = fj
+            if not j_max in pts_j:
+                pts_j.append(j_max)
+        if fk > k_min:
+            k_max = fk
+            if not k_max in pts_k:
+                pts_k.append(k_max)     
 
         get_dim_pts(i_min, i_max, Oi, pts_i) # from max, compute the other outfiles borders and add it to points
         get_dim_pts(j_min, j_max, Oj, pts_j)
@@ -369,22 +375,23 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
             zs.append(z1)
             zs.append(z2)
         err = -1
-        if not min(xs) == buffers_volumes[buffer_index].p1[0]:
+        buff_vol = buffers_volumes[buffer_index]
+        if not min(xs) == buff_vol.p1[0]:
             err = 0
-        if not min(ys) == buffers_volumes[buffer_index].p1[1]:
+        if not min(ys) == buff_vol.p1[1]:
             err = 1
-        if not min(zs) == buffers_volumes[buffer_index].p1[2]:
+        if not min(zs) == buff_vol.p1[2]:
             err = 2
-        if not max(xs) == buffers_volumes[buffer_index].p2[0]:
+        if not max(xs) == buff_vol.p2[0]:
             err = 3
-        if not max(ys) == buffers_volumes[buffer_index].p2[1]:
+        if not max(ys) == buff_vol.p2[1]:
             err = 4
-        if not max(zs) == buffers_volumes[buffer_index].p2[2]:
+        if not max(zs) == buff_vol.p2[2]:
             err = 5
         if err > -1:
-            print(f'buffer lower corner: {buffers_volumes[buffer_index].p1}')
+            print(f'buffer lower corner: {buff_vol.p1}')
             print(f'volumes lower corner: {(min(xs), min(ys), min(zs))}')
-            print(f'buffer upper corner: {buffers_volumes[buffer_index].p2}')
+            print(f'buffer upper corner: {buff_vol.p2}')
             print(f'volumes upper corner: {(max(xs), max(ys), max(zs))}')
             raise ValueError("[get_buff_to_vols] Error " + str(err))
 
@@ -423,11 +430,11 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
 
         T = get_theta(buffers_volumes, buffer_index, _3d_index, O, B)
         volumes_list = get_main_volumes(B, T)  # get coords in basis of buffer
+        add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R - WARNING: important to be in this order, we need basis R for split_main_volumes
         print('Main volumes found:')
         for v in volumes_list:
             v.print()
 
-        add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R - WARNING: important to be in this order, we need basis R for split_main_volumes
         volumes_list = split_main_volumes(volumes_list, O) # seek for hidden volumes in main volumes
         print('Split volumes found:')
         for v in volumes_list:
