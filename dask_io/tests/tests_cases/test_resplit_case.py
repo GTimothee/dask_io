@@ -285,10 +285,7 @@ def test_get_volumes():
         logger.debug("T: %s", T)
 
         main_volumes = get_main_volumes(B, T)
-        assert len(main_volumes) == 3
-
-        hidden = compute_hidden_volumes(T, O)
-        assert len(hidden) == 1
+        assert len(main_volumes) == 4
 
 
 @pytest.fixture(autouse=True)
