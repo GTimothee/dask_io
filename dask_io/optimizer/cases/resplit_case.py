@@ -6,6 +6,8 @@ from dask_io.optimizer.cases.resplit_utils import *
 import logging 
 logger = logging.getLogger(__name__)
 
+DEBUG=False
+
 def get_main_volumes(B, T):
     """ I- Get a dictionary associating volume indices to volume positions in the buffer.
     Indexing following the keep algorithm indexing in storage order.
@@ -157,6 +159,7 @@ def add_offsets(volumes_list, _3d_index, B):
 def get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes, outfiles_partititon):
     """ IV - Assigner les volumes à tous les output files, en gardant référence du type de volume que c'est
     """
+    print("== Function == get_arrays_dict")
     array_dict = dict()
 
     for buffer_index, volumes_in_buffer in buff_to_vols.items():
@@ -192,6 +195,7 @@ def merge_cached_volumes(arrays_dict, volumestokeep):
     """ V - Pour chaque output file, pour chaque volume, si le volume doit être kept alors fusionner
     """
     logger.debug("== Function == merge_cached_volumes")
+    print("== Function == merge_cached_volumes")
     merge_rules = get_merge_rules(volumestokeep)
 
     for outfileindex in sorted(list(arrays_dict.keys())):
@@ -243,6 +247,7 @@ def get_merge_rules(volumestokeep):
 def get_regions_dict(array_dict, outfiles_volumes):
     """ Create regions dict from arrays dict by removing output file offset (low corner) from slices.
     """
+    print("== Function == get_regions_dict")
     regions_dict = copy.deepcopy(array_dict)
 
     slice_to_list = lambda s: [s.start, s.stop, s.step]
@@ -420,25 +425,30 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
             raise ValueError("sum of volumes should be equal to buffer volume")
 
     logger.debug("== Function == get_buff_to_vols")
+    print("== Function == get_buff_to_vols")
     buff_to_vols = dict()
     
     rows = list()
     for buffer_index in buffers_volumes.keys():
         print(f'\nProcessing buffer {buffer_index}')
-        buffers_volumes[buffer_index].print()
+        if DEBUG:
+            buffers_volumes[buffer_index].print()
         _3d_index = numeric_to_3d_pos(buffer_index, buffers_partition, order='F')
 
         T = get_theta(buffers_volumes, buffer_index, _3d_index, O, B)
         volumes_list = get_main_volumes(B, T)  # get coords in basis of buffer
         add_offsets(volumes_list, _3d_index, B)  # convert coords in basis of R - WARNING: important to be in this order, we need basis R for split_main_volumes
-        print('Main volumes found:')
-        for v in volumes_list:
-            v.print()
+        
+        if DEBUG:
+            print('Main volumes found:')
+            for v in volumes_list:
+                v.print()
 
         volumes_list = split_main_volumes(volumes_list, O) # seek for hidden volumes in main volumes
-        print('Split volumes found:')
-        for v in volumes_list:
-            v.print()
+        if DEBUG:
+            print('Split volumes found:')
+            for v in volumes_list:
+                v.print()
 
         # hidd_vols = compute_hidden_volumes(T, O)
         # add_offsets(hidd_vols, _3d_index, B)
@@ -448,12 +458,11 @@ def get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition):
 
         # volumes_list = volumes_list + hidd_vols  # still in basis of buffer 
         
-
-        # debug 
-        print('\nVolumes found:')
-        for v in volumes_list:
-            v.print()
-        print('\n')
+        if DEBUG:
+            print('\nVolumes found:')
+            for v in volumes_list:
+                v.print()
+            print('\n')
 
         first_sanity_check(buffers_volumes, buffer_index, volumes_list)
         second_sanity_check(B, O, volumes_list)
@@ -498,19 +507,21 @@ def compute_zones(B, O, R, volumestokeep):
     logger.debug("Getting buffer partitions and buffer volumes")
     buffers_partition = get_blocks_shape(R, B)
     buffers_volumes = get_named_volumes(buffers_partition, B)
-    print(f'Buffers found:')
-    for i, buff in buffers_volumes.items():
-        buff.print()
+
     logger.debug("Getting output files partitions and buffer volumes")
+
     outfiles_partititon = get_blocks_shape(R, O)
     outfiles_volumes = get_named_volumes(outfiles_partititon, O)
 
-    print('Outfile volumes:')
-    for k, outfiles_volume in outfiles_volumes.items():
-        outfiles_volume.print()
-
-    print(f'buffers partition: {buffers_partition}')
-    print(f'outfiles partition: {outfiles_partititon}')
+    if DEBUG:
+        print(f'Buffers found:')
+        for i, buff in buffers_volumes.items():
+            buff.print()
+        print('Outfile volumes:')
+        for k, outfiles_volume in outfiles_volumes.items():
+            outfiles_volume.print()
+        print(f'buffers partition: {buffers_partition}')
+        print(f'outfiles partition: {outfiles_partititon}')
 
     # A/ associate each buffer to volumes contained in it
     buff_to_vols = get_buff_to_vols(R, B, O, buffers_volumes, buffers_partition)
@@ -520,33 +531,36 @@ def compute_zones(B, O, R, volumestokeep):
     arrays_dict = get_arrays_dict(buff_to_vols, buffers_volumes, outfiles_volumes, outfiles_partititon) 
     merge_cached_volumes(arrays_dict, volumestokeep)
 
-    logger.debug("Arrays dict before clean:")
-    for k in sorted(list(arrays_dict.keys())):
-        v = arrays_dict[k]
-        logger.debug("key %s", k)
-        for e in v:
-            e.print()
-    logger.debug("---\n")
+    if DEBUG:
+        logger.debug("Arrays dict before clean:")
+        for k in sorted(list(arrays_dict.keys())):
+            v = arrays_dict[k]
+            logger.debug("key %s", k)
+            for e in v:
+                e.print()
+        logger.debug("---\n")
 
     clean_arrays_dict(arrays_dict)
 
-    logger.debug("Arrays dict after clean:")
-    for k in sorted(list(arrays_dict.keys())):
-        v = arrays_dict[k]
-        logger.debug("key %s", k)
-        for e in v:
-            logger.debug("\t%s", e)
-    logger.debug("---\n")
+    if DEBUG:
+        logger.debug("Arrays dict after clean:")
+        for k in sorted(list(arrays_dict.keys())):
+            v = arrays_dict[k]
+            logger.debug("key %s", k)
+            for e in v:
+                logger.debug("\t%s", e)
+        logger.debug("---\n")
 
     # C/ Create regions dict from arrays dict
     regions_dict = get_regions_dict(arrays_dict, outfiles_volumes)
-    logger.debug("Regions dict:")
-    for k in sorted(list(regions_dict.keys())):
-        v = regions_dict[k]
-        logger.debug("key %s", k)
-        for e in v:
-            logger.debug("\t%s", e)
-    logger.debug("---\n")
+    if DEBUG:
+        logger.debug("Regions dict:")
+        for k in sorted(list(regions_dict.keys())):
+            v = regions_dict[k]
+            logger.debug("key %s", k)
+            for e in v:
+                logger.debug("\t%s", e)
+        logger.debug("---\n")
 
     logger.debug("-----------------End Compute zones-----------------")
     return arrays_dict, regions_dict
